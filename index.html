@@ -804,6 +804,13 @@
           <span class="field-error" id="nameError"></span>
         </div>
 
+        <!-- Phone -->
+        <div class="field-group">
+          <label class="field-label" for="phoneInput">Номер телефона</label>
+          <input class="field-input" type="tel" id="phoneInput" placeholder="Например, +995 555 123 456" autocomplete="tel">
+          <span class="field-error" id="phoneError"></span>
+        </div>
+
         <!-- Days -->
         <div class="field-group">
           <label class="field-label">Когда придёте?</label>
@@ -885,39 +892,41 @@
 </footer>
 
 <script>
-  // ─────────────────────────────────────────
-  // TELEGRAM
-  const TG_BOT_TOKEN = "8398326381:AAFMHeO_Pz5xIMht8SiWILwKMLQd9LtanPM";
-  const TG_CHAT_ID   = "7437375018";
+    // ─────────────────────────────────────────
+  // Endpoint Flask Web App на PythonAnywhere
+  const WEBHOOK_URL = "https://kezlev.pythonanywhere.com/new_guest";
   // ─────────────────────────────────────────
 
-  async function sendToTelegram(payload) {
+  async function sendToBot(payload) {
     const days = [];
     if (payload.day1) {
       let line = '18 апреля в 16:00';
-      if (payload.day1_plus) line += ` + ${payload.day1_plus_count} чел.`;
+      if (payload.day1_plus) line += \` + ${payload.day1_plus_count} чел.\`;
       days.push(line);
     }
     if (payload.day2) {
       let line = '19 апреля в 15:00';
-      if (payload.day2_plus) line += ` + ${payload.day2_plus_count} чел.`;
+      if (payload.day2_plus) line += \` + ${payload.day2_plus_count} чел.\`;
       days.push(line);
     }
 
-    const text =
-      `🎉 Новый ответ на приглашение!\n\n` +
-      `👤 ФИО: ${payload.name}\n` +
-      `📅 Дни: ${days.join(', ')}\n` +
-      `🕐 ${new Date().toLocaleString('ru-RU')}`;
+    const body = {
+      name:            payload.name,
+      phone:           payload.phone,
+      days:            days,
+      day1_plus_count: payload.day1_plus_count || 0,
+      day2_plus_count: payload.day2_plus_count || 0,
+      timestamp:       new Date().toLocaleString('ru-RU')
+    };
 
     try {
-      await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
+      await fetch(WEBHOOK_URL, {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TG_CHAT_ID, text })
+        body:    JSON.stringify(body)
       });
     } catch(err) {
-      console.warn('Telegram send failed:', err);
+      console.warn('Webhook send failed:', err);
     }
   }
 
@@ -974,13 +983,15 @@
     if (el) el.textContent = msg;
   }
   function clearErrors() {
-    ['nameError','daysError','plus1CountError','plus2CountError'].forEach(id => setError(id, ''));
+    ['nameError','phoneError','daysError','plus1CountError','plus2CountError'].forEach(id => setError(id, ''));
   }
   function validate() {
     clearErrors();
     let ok = true;
     const name = document.getElementById('nameInput').value.trim();
     if (!name) { setError('nameError', 'Пожалуйста, введите Ваше ФИО'); ok = false; }
+    const phone = document.getElementById('phoneInput').value.trim();
+    if (!phone) { setError('phoneError', 'Пожалуйста, введите номер телефона'); ok = false; }
     const d1 = document.getElementById('day1Check').checked;
     const d2 = document.getElementById('day2Check').checked;
     if (!d1 && !d2) { setError('daysError', 'Выберите хотя бы один день'); ok = false; }
@@ -1009,6 +1020,7 @@
 
     const payload = {
       name: document.getElementById('nameInput').value.trim(),
+      phone: document.getElementById('phoneInput').value.trim(),
       day1: document.getElementById('day1Check').checked,
       day1_plus: document.getElementById('day1Check').checked && document.getElementById('plus1Check').checked,
       day1_plus_count: (document.getElementById('day1Check').checked && document.getElementById('plus1Check').checked) ? document.getElementById('plus1Count').value : '',
@@ -1018,7 +1030,7 @@
       timestamp: new Date().toISOString()
     };
 
-    await sendToTelegram(payload);
+    await sendToBot(payload);
     saveLocally(payload);
 
     document.getElementById('rsvpForm').style.display = 'none';
